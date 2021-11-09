@@ -7,7 +7,7 @@ quarter_reso     = bar_reso//4  # 4部音符の解像度
 quarter_tri_reso = quarter_reso//3
 quaver_reso      = quarter_reso//2 #8部音符の解像度
 quaver_tri_reso  = quaver_reso//3
-bar_reso         = int(bar_reso*3/4)
+#bar_reso         = int(bar_reso*3/4)
 
 bar_num          = 8     # 小節数
 all_reso         = bar_num * bar_reso #8 * 96
