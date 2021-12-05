@@ -1,49 +1,111 @@
 import numpy as np
-from collections import OrderedDict
+import itertools
+import copy
+import config
 
-def make_dicts():
-    key_names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
-    key_name_dicts = {"{}{}".format(key_names[i%12],i//12-2):i for i in range(128)}
+#音符
+class Note:
+    def __init__(self,dulation_char,onoff_char,pitch_char="C-2",bpm=config.tempo):
+        self.dulation_char  = dulation_char # quaver, (長さ) "quaver"
+        self.onoff_char     = onoff_char # on or off 
+        self.pitch_char     = pitch_char #'C5'
+        self.bpm       = bpm
+        self.char2num()
+        
+    def char2num(self): ##charの状態をnumに反映させる
+        self.dulation_num  = config.dulation_char2num_dicts[self.dulation_char]
+        self.onoff_num     = 1 if (self.onoff_char == "on") else 0
+        self.pitch_num     = config.pitch_char2num_dicts[self.pitch_char]
 
-    third_name_dicts   = {"m":3,"none":4,"sus2":2,"sus4":5}
-    fifth_name_dicts   = {"none":7,"b5":6,"#5":8}
-    seventh_name_dicts = {"6":9,"7":10,"maj7":11,"null":0}
-    tension_name_dicts = {"addb9":13,"add9":14,"add#9":15,"add#11":18,"addb13":20,"null":0}
+    def num2char(self): ##numの状態をcharに反映させる
+        self.dulation_char = config.dulation_num2char_dicts[self.dulation_num]
+        self.onoff_char    = "on" if (self.onoff_num == 1) else "off"
+        self.pitch_char    = config.pitch_num2char_dicts[self.pitch_num]
+    
+    
+    def change_pitch(self,pentas_choice):        
+        if self.onoff_char == "on":
+            pitch_char = np.random.choice(list(config.pentas_choice.keys()),p=list(config.pentas_choice.values()),replace=True)
+            self.pitch_char = pitch_char
+        self.char2num()
+                
+class Bar:
+    def __init__(self,beat=4):
+        self.beat     = beat
+        self.bar_reso = int( config.bar_reso * (self.beat/4) )
+        self.notes    = []
+        
+    def append(self,note):
+        self.notes.append(note)
+    
+class Motif: 
+    def __init__(self,beat,bar_num,bpm):
+        self.notes   = []
+        self.beat     = beat
+        self.bar_num  = bar_num #モチーフの小節数。
+        
+        self.bar_reso    = int( config.bar_reso * (self.beat/4) )
+        self.motif_reso  = self.bar_reso * self.bar_num
+        ###############仮置き###############
+        self.bpm = bpm
+        ###################################
+        self.make_motif()
+        
+    def make_motif(self):#1小節リズム生成 
+        motif_combination = np.random.choice(config.motif_pattern_list_text,p= config.motif_prob_list )
+        np.random.shuffle( motif_combination )
+        for note_char in motif_combination:
+            onoff_char = np.random.choice(["on","off"], p=[0.9,0.1])
+            note = Note(note_char,onoff_char,"C-2",bpm=self.bpm)
+            note.change_pitch(pentas_choice = config.pentas_choice)
+            self.notes.append(note)
+            
+        return self.notes
+    
+    def print_motif(self):
+        for note in self.notes:
+            print(note.dulation_char,note.pitch_char,note.onoff_char)
+        
+class Phrase: 
+    def __init__(self,base_motif,part_name="Amelo",motif_patern="ABACABACABACABAC"):
+        
+        # 基本となるモチーフ
+        self.base_motif   = base_motif 
+        # Amelo,Bmelo,Sabi,etc..
+        self.part_name     = part_name   
+        self.motif_patern = motif_patern
+        #phraseに含まれる小節数
+        self.bar_num       = len(self.motif_patern) * self.base_motif.bar_num
+        ##motifインスタンスのリスト
+        self.motifs        = []
+        
+        self.motif_dict = self.make_motif_dict() 
+        
+        for patern in self.motif_patern:
+            self.motifs.append( self.motif_dict[patern] )
+            
+    def make_motif_dict(self):
+        unique_paterns = set(self.motif_patern)            
+        motif_dict    = {}
 
-    chord_name_dicts = OrderedDict()
-    for key in  key_names:
-        for third in third_name_dicts.keys():
-            for fifth in fifth_name_dicts.keys():
-                for seventh in seventh_name_dicts.keys():
-                    for tension in tension_name_dicts.keys():
-                        key_note      = key_name_dicts[key+"2"] #ちょっと強引
-                        third_note    = key_note + third_name_dicts[third]
-                        fifth_note    = key_note + fifth_name_dicts[fifth]
-                        seventh_note  = key_note + seventh_name_dicts[seventh]
-                        tension_note  = key_note + tension_name_dicts[tension]
-                        chord_array = np.array( list({key_note,third_note,fifth_note,seventh_note,tension_note}) )
-                        chord_array.sort()
-                        #set{}によって，同じ要素を消す．seventhとtenstionがnullの場合，key_noteと同じ値になる．
+        for patern in unique_paterns:
+            motif_cp = copy.deepcopy(self.base_motif)
+            
+            if patern  == "A": #そのままコピー
+                pass
 
-                        if "sus" in third:
-                            chord_name  = key+seventh+third+fifth+tension
-                        else:
-                            chord_name  = key+third+seventh+fifth+tension
+            elif patern == "B": #リズムをキープしてピッチをふりなおす
+                for note in motif_cp.notes:
+                    note.change_pitch(pentas_choice=config.pentas_choice)
 
-                        chord_name  = chord_name.replace("none","")
-                        chord_name  = chord_name.replace("null","")
-                        
-                        if third == "m" and fifth == "b5" and seventh == "6" and tension == "null":
-                            chord_name = chord_name.replace("m6b5", "dim7")
-                        if third == "m" and fifth == "b5" and seventh == "null" and tension == "null":
-                            chord_name = chord_name.replace("mb5", "dim")
-                        if third == "none" and fifth == "#5" and seventh == "null" and tension == "null":
-                            chord_name = chord_name.replace("#5", "aug")
-                        
-                        chord_name_dicts[chord_name] = chord_array
-                        
-    return key_name_dicts,chord_name_dicts
+            elif patern == "C":  #完全新規
+                motif_cp = Motif(beat=motif_cp.beat,bar_num=motif_cp.bar_num,bpm=motif_cp.bpm)
+                
+            motif_dict[patern] = motif_cp
 
-def inversion(val,course=48):
-    val_inversion = np.array( [i%12 for i in val] ) + course
-    return val_inversion
+        return motif_dict
+    
+    def print_phrase(self):
+        for motief in self.motifs:
+            print("---")
+            motief.print_motif()

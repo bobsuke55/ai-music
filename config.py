@@ -1,5 +1,53 @@
 import numpy as np
-from music_theory_utils import make_dicts,inversion
+import itertools
+from collections import OrderedDict
+
+def make_dicts():
+    key_names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+    key_name_dicts = {"{}{}".format(key_names[i%12],i//12-2):i for i in range(128)}
+
+    third_name_dicts   = {"m":3,"none":4,"sus2":2,"sus4":5}
+    fifth_name_dicts   = {"none":7,"b5":6,"#5":8}
+    seventh_name_dicts = {"6":9,"7":10,"maj7":11,"null":0}
+    tension_name_dicts = {"addb9":13,"add9":14,"add#9":15,"add#11":18,"addb13":20,"null":0}
+
+    chord_name_dicts = OrderedDict()
+    for key in  key_names:
+        for third in third_name_dicts.keys():
+            for fifth in fifth_name_dicts.keys():
+                for seventh in seventh_name_dicts.keys():
+                    for tension in tension_name_dicts.keys():
+                        key_note      = key_name_dicts[key+"2"] #ちょっと強引
+                        third_note    = key_note + third_name_dicts[third]
+                        fifth_note    = key_note + fifth_name_dicts[fifth]
+                        seventh_note  = key_note + seventh_name_dicts[seventh]
+                        tension_note  = key_note + tension_name_dicts[tension]
+                        chord_array = np.array( list({key_note,third_note,fifth_note,seventh_note,tension_note}) )
+                        chord_array.sort()
+                        #set{}によって，同じ要素を消す．seventhとtenstionがnullの場合，key_noteと同じ値になる．
+
+                        if "sus" in third:
+                            chord_name  = key+seventh+third+fifth+tension
+                        else:
+                            chord_name  = key+third+seventh+fifth+tension
+
+                        chord_name  = chord_name.replace("none","")
+                        chord_name  = chord_name.replace("null","")
+                        
+                        if third == "m" and fifth == "b5" and seventh == "6" and tension == "null":
+                            chord_name = chord_name.replace("m6b5", "dim7")
+                        if third == "m" and fifth == "b5" and seventh == "null" and tension == "null":
+                            chord_name = chord_name.replace("mb5", "dim")
+                        if third == "none" and fifth == "#5" and seventh == "null" and tension == "null":
+                            chord_name = chord_name.replace("#5", "aug")
+                        
+                        chord_name_dicts[chord_name] = chord_array
+                        
+    return key_name_dicts,chord_name_dicts
+
+def inversion(val,course=48):
+    val_inversion = np.array( [i%12 for i in val] ) + course
+    return val_inversion
 
 bar_reso         = 96 # 1小節の解像度　　一小節の分解能は96で良いのでは？
 half_reso = bar_reso//2
@@ -27,7 +75,53 @@ dulation_char2num_dicts = {
     #"semiquaver":semiquaver_reso}
 
 dulation_num2char_dicts = {val:key for key, val in dulation_char2num_dicts.items()}
-
 pitch_char2num_dicts,chord_char2array_dicts = make_dicts()
 pitch_num2char_dicts     = {val:key for key,val in pitch_char2num_dicts.items()}
 chord_char2array_dicts = {key:inversion(np.array(val),course=48) for key,val in chord_char2array_dicts.items() }
+
+## Noteの生成音の候補と確率 pentas_choice
+pentas_choice = ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5']
+pentas_choice = {key:1/len(pentas_choice) for key in pentas_choice}
+
+## モチーフのリズムパターン列挙## 
+# motif_pattern_list_text motif_prob_list
+list_note_dulation = np.array(list(dulation_char2num_dicts.values()))
+list_char = dulation_char2num_dicts.keys()
+
+note_max_count = [np.arange(int(1+96/i) ) for i in list_note_dulation ]
+note_count_candi = itertools.product( *note_max_count )
+
+pattern_list = []
+for note_count in note_count_candi:
+    dulation_sum = np.dot(list_note_dulation, note_count)
+    if dulation_sum == 96:
+        pattern_list.append(note_count)
+
+dulation_prob = {
+"bar":1,"half":1,
+"quarter":1,"dotted_quarter":1,
+"quaver":1}#,  "dotted_quaver":1,
+#"quarter_tri":0 ,"quaver_tri":0,
+#"semiquaver":0.8}
+
+list_char = [[i] for i in list_char]
+note_prob = list( dulation_prob.values() )
+#['bar','half','quarter','quaver','quarter_tri','quaver_tri','semiquaver']
+
+motif_pattern_list_text = []
+motif_prob_list = []
+
+for pattern in pattern_list:
+    synth_char = []
+    motif_prob = 1
+    
+    for num, note_count in enumerate(pattern):
+        synth_char += list_char[num] * note_count
+        motif_prob *= note_prob[num] ** note_count 
+        
+    motif_pattern_list_text.append(synth_char)
+    motif_prob_list.append(motif_prob)
+#正規化
+motif_prob_list = motif_prob_list/np.sum( motif_prob_list ) 
+##############################################################
+
