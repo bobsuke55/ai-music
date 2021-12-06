@@ -1,2 +1,7 @@
 hogehoge
+<<<<<<< HEAD
 yusuke
+=======
+
+ryotaro
+>>>>>>> ituuta_ryotaro
