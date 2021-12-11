@@ -2,6 +2,23 @@ import numpy as np
 import itertools
 from collections import OrderedDict
 
+bar_reso         = 96 # 1小節の解像度　　一小節の分解能は96で良いのでは？
+half_reso        = bar_reso//2
+quarter_reso     = bar_reso//4  # 4部音符の解像度 
+dotted_quarter_reso     = int( quarter_reso * 1.5 )
+quarter_tri_reso = quarter_reso//3 *2 #
+quaver_reso      = quarter_reso//2 #8部音符の解像度
+dotted_quaver_reso = int(quaver_reso * 1.5) #8部音符の解像度
+quaver_tri_reso  = quaver_reso//3 *2
+semiquaver_reso  = quaver_reso//2
+
+bar_num          = 8     # 小節数
+all_reso         = bar_num * bar_reso #8 * 96
+tempo            = 120    #bpm
+pitch_reso       = 128    #鍵盤の数
+note_velocity    = 127
+tempos           = tempo*np.ones( [all_reso,1] )
+    
 def make_dicts():
     key_names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
     key_name_dicts = {"{}{}".format(key_names[i%12],i//12-2):i for i in range(128)}
@@ -49,79 +66,14 @@ def inversion(val,course=48):
     val_inversion = np.array( [i%12 for i in val] ) + course
     return val_inversion
 
-bar_reso         = 96 # 1小節の解像度　　一小節の分解能は96で良いのでは？
-half_reso = bar_reso//2
-quarter_reso     = bar_reso//4  # 4部音符の解像度 
-dotted_quarter_reso     = int( quarter_reso * 1.5 )
-quarter_tri_reso = quarter_reso//3 *2 #
-quaver_reso      = quarter_reso//2 #8部音符の解像度
-dotted_quaver_reso = int(quaver_reso * 1.5) #8部音符の解像度
-quaver_tri_reso  = quaver_reso//3 *2
-semiquaver_reso  = quaver_reso//2 
-
-bar_num          = 8     # 小節数
-all_reso         = bar_num * bar_reso #8 * 96
-tempo            = 120    #bpm
-pitch_reso = 128    # 鍵盤の数
-note_velocity = 127
-tempos = tempo*np.ones( [all_reso,1] )
-
 dulation_char2num_dicts = {
     "bar":bar_reso,"half":half_reso,
     "quarter":quarter_reso,"dotted_quarter":dotted_quarter_reso,
-    "quaver":quaver_reso}
-    #"dotted_quaver":dotted_quaver_reso,
-    #"quarter_tri":quarter_tri_reso ,"quaver_tri":quaver_tri_reso,
-    #"semiquaver":semiquaver_reso}
-
-dulation_num2char_dicts = {val:key for key, val in dulation_char2num_dicts.items()}
+    "quaver":quaver_reso,"dotted_quaver":dotted_quaver_reso,
+    "quarter_tri":quarter_tri_reso ,"quaver_tri":quaver_tri_reso,
+    "semiquaver":semiquaver_reso
+}
+dulation_num2char_dicts  = {val:key for key, val in dulation_char2num_dicts.items()}
 pitch_char2num_dicts,chord_char2array_dicts = make_dicts()
 pitch_num2char_dicts     = {val:key for key,val in pitch_char2num_dicts.items()}
-chord_char2array_dicts = {key:inversion(np.array(val),course=48) for key,val in chord_char2array_dicts.items() }
-
-## Noteの生成音の候補と確率 pentas_choice
-pentas_choice = ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5']
-pentas_choice = {key:1/len(pentas_choice) for key in pentas_choice}
-
-## モチーフのリズムパターン列挙## 
-# motif_pattern_list_text motif_prob_list
-list_note_dulation = np.array(list(dulation_char2num_dicts.values()))
-list_char = dulation_char2num_dicts.keys()
-
-note_max_count = [np.arange(int(1+96/i) ) for i in list_note_dulation ]
-note_count_candi = itertools.product( *note_max_count )
-
-pattern_list = []
-for note_count in note_count_candi:
-    dulation_sum = np.dot(list_note_dulation, note_count)
-    if dulation_sum == 96:
-        pattern_list.append(note_count)
-
-dulation_prob = {
-"bar":1,"half":1,
-"quarter":1,"dotted_quarter":1,
-"quaver":1}#,  "dotted_quaver":1,
-#"quarter_tri":0 ,"quaver_tri":0,
-#"semiquaver":0.8}
-
-list_char = [[i] for i in list_char]
-note_prob = list( dulation_prob.values() )
-#['bar','half','quarter','quaver','quarter_tri','quaver_tri','semiquaver']
-
-motif_pattern_list_text = []
-motif_prob_list = []
-
-for pattern in pattern_list:
-    synth_char = []
-    motif_prob = 1
-    
-    for num, note_count in enumerate(pattern):
-        synth_char += list_char[num] * note_count
-        motif_prob *= note_prob[num] ** note_count 
-        
-    motif_pattern_list_text.append(synth_char)
-    motif_prob_list.append(motif_prob)
-#正規化
-motif_prob_list = motif_prob_list/np.sum( motif_prob_list ) 
-##############################################################
-
+chord_char2array_dicts   = {key:inversion(np.array(val),course=48) for key,val in chord_char2array_dicts.items() }
