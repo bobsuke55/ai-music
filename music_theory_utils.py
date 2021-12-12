@@ -51,7 +51,8 @@ class ItsuUta:
 
         self.BPM         = 0
         self.KEY         = "C"
-        self.NEUTRINO    = "C:\\Users\\yusuke\\Desktop\\Music\\NEUTRINO-Windows_v0.500\\Run_arg.bat"
+        #self.NEUTRINO    = "C:\\Users\\yusuke\\Desktop\\Music\\NEUTRINO-Windows_v0.500\\Run_arg.bat"
+        self.NEUTRINO    = "C:\\Users\\ryo\\Documents\\AI\\NEUTRINO-Windows_v0.500\\NEUTRINO\\Run_arg.bat"
 
         self.savepath = os.path.join("save",self.songname)
         os.makedirs(self.savepath,exist_ok=True)
@@ -179,6 +180,7 @@ class ItsuUta:
             part_item["vocal_synth"] = outputpath
 
             if part_item["vocal_flg"]:
+                print([self.NEUTRINO,musicxmlpath,part_name,outputpath])
                 proc = subprocess.Popen([self.NEUTRINO,musicxmlpath,part_name,outputpath])
                 proc_list.append(proc)
             else:#便宜上空のwavファイルを作成する。

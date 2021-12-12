@@ -11,6 +11,7 @@ def preprocess_loop():
         bpm_keys = os.listdir(f"loop\\{genra}\\")
         for bpm_key in bpm_keys:
             parts = os.listdir(f"loop\\{genra}\\{bpm_key}")
+            bpm = int(bpm_key[:3])
             for part in parts:
                 insts = os.listdir(f"loop\\{genra}\\{bpm_key}\\{part}")
                 for inst in insts:
@@ -19,11 +20,9 @@ def preprocess_loop():
                     for loop in loops:
                         loop_path   = f"loop\\{genra}\\{bpm_key}\\{part}\\{inst}\\{loop}"
                         output_path = f"loop8m\\{genra}\\{bpm_key}\\{part}\\{inst}\\{loop}"
-                        print("preprocess",loop_path)
-                        
-                        loop_bar_num = int(loop.split("_")[0][:2])
-                        repeat_num   = int(config.bar_num/loop_bar_num)
-                        repeat_loop(loop_path,output_path,repeat_num=repeat_num)
+
+                        print(f"loop_path = {loop_path}")
+                        fit_loop_8bar(bpm, loop_path, output_path)
 
 def key_pentas_list(choice_key="C"):
     rela_penta = np.array([0,2,4,7,9])
@@ -89,9 +88,26 @@ def cut_firstend_bar(wav_path,bpm):
     data_cut = data[bar_frames:-bar_frames]
     sf.write(wav_path,data_cut,samplerate)
 
-
-def repeat_loop(loop_path,out_path,repeat_num=1):
+# ループ素材の長さを，bpm毎に8小節に収める
+def fit_loop_8bar(bpm, loop_path, out_path):
     data,samplerate = sf.read(loop_path,always_2d=True)
+    bar8_sec    = 60 / bpm * 4 * 8
+    bar8_sample = int(bar8_sec * samplerate)
+    #print(f"data.shape[0] = {data.shape[0]}, bar8_sample = {bar8_sample}")
+    # ループ素材が8小節を超えるの長さを持つとき
+    if data.shape[0] > bar8_sample :
+        data_cut = data[:bar8_sample]
+    # ループ素材が8小節以下の長さを持つとき
+    else:
+        # 小節単位で繰り返す
+        repeat_num = round(bar8_sample / data.shape[0])
+        data_frame = np.zeros([int(bar8_sample / repeat_num), 2])
+        #print(data_frame.shape[0] - data.shape[0])
+        #print(f"repeat_num = {repeat_num}, data_frame.shape[0] = {data_frame.shape[0]}, data.shape[0] = {data.shape[0]}")
+        if data_frame.shape[0] < data.shape[0] :
+            data_frame = data[:int(bar8_sample / repeat_num)]
+        else:
+            data_frame[:data.shape[0]] = data
+        data_cut = np.tile(data_frame,[repeat_num,1])
 
-    data_cut = np.tile(data,[repeat_num,1])
     sf.write(out_path,data_cut,samplerate)
