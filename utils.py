@@ -2,8 +2,28 @@ import config
 import numpy as np
 import itertools
 import soundfile as sf
-from numpy import fromstring, int16,int32
-import struct
+import os
+
+#loopディレクトリにある各loop素材を8小節にして、lopop8mディレクトリに保存。
+def preprocess_loop():
+    genras = os.listdir(f"loop\\")
+    for genra in genras:
+        bpm_keys = os.listdir(f"loop\\{genra}\\")
+        for bpm_key in bpm_keys:
+            parts = os.listdir(f"loop\\{genra}\\{bpm_key}")
+            for part in parts:
+                insts = os.listdir(f"loop\\{genra}\\{bpm_key}\\{part}")
+                for inst in insts:
+                    os.makedirs(f"loop8m\\{genra}\\{bpm_key}\\{part}\\{inst}",exist_ok=True)
+                    loops = os.listdir(f"loop\\{genra}\\{bpm_key}\\{part}\\{inst}")
+                    for loop in loops:
+                        loop_path   = f"loop\\{genra}\\{bpm_key}\\{part}\\{inst}\\{loop}"
+                        output_path = f"loop8m\\{genra}\\{bpm_key}\\{part}\\{inst}\\{loop}"
+                        print("preprocess",loop_path)
+                        
+                        loop_bar_num = int(loop.split("_")[0][:2])
+                        repeat_num   = int(config.bar_num/loop_bar_num)
+                        repeat_loop(loop_path,output_path,repeat_num=repeat_num)
 
 def key_pentas_list(choice_key="C"):
     rela_penta = np.array([0,2,4,7,9])
