@@ -1,6 +1,5 @@
 import numpy as np
 import itertools
-from collections import OrderedDict
 
 bar_reso         = 96 # 1小節の解像度　　一小節の分解能は96で良いのでは？
 half_reso        = bar_reso//2
@@ -21,20 +20,20 @@ tempos           = tempo*np.ones( [all_reso,1] )
     
 def make_dicts():
     key_names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
-    key_name_dicts = {"{}{}".format(key_names[i%12],i//12-2):i for i in range(128)}
+    key_name_dicts = {"{}{:+d}".format(key_names[i%12],i//12-2):i for i in range(128)}
 
     third_name_dicts   = {"m":3,"none":4,"sus2":2,"sus4":5}
     fifth_name_dicts   = {"none":7,"b5":6,"#5":8}
     seventh_name_dicts = {"6":9,"7":10,"maj7":11,"null":0}
     tension_name_dicts = {"addb9":13,"add9":14,"add#9":15,"add#11":18,"addb13":20,"null":0}
 
-    chord_name_dicts = OrderedDict()
+    chord_name_dicts = {}
     for key in  key_names:
         for third in third_name_dicts.keys():
             for fifth in fifth_name_dicts.keys():
                 for seventh in seventh_name_dicts.keys():
                     for tension in tension_name_dicts.keys():
-                        key_note      = key_name_dicts[key+"2"] #ちょっと強引
+                        key_note      = key_name_dicts[key+"+2"] #ちょっと強引
                         third_note    = key_note + third_name_dicts[third]
                         fifth_note    = key_note + fifth_name_dicts[fifth]
                         seventh_note  = key_note + seventh_name_dicts[seventh]
@@ -75,5 +74,6 @@ dulation_char2num_dicts = {
 }
 dulation_num2char_dicts  = {val:key for key, val in dulation_char2num_dicts.items()}
 pitch_char2num_dicts,chord_char2array_dicts = make_dicts()
+pitch_char2num_dicts["N"] = -1
 pitch_num2char_dicts     = {val:key for key,val in pitch_char2num_dicts.items()}
 chord_char2array_dicts   = {key:inversion(np.array(val),course=48) for key,val in chord_char2array_dicts.items() }

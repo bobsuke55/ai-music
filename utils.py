@@ -25,7 +25,7 @@ def preprocess_loop():
                         repeat_num   = int(config.bar_num/loop_bar_num)
                         repeat_loop(loop_path,output_path,repeat_num=repeat_num)
 
-def key_pentas_list(choice_key="C"):
+def key_pentas_list(key="C"):
     rela_penta = np.array([0,2,4,7,9])
     base_penta = np.array([],dtype=int)
 
@@ -33,15 +33,16 @@ def key_pentas_list(choice_key="C"):
         temp = rela_penta  + (12*octave )
         base_penta = np.append(base_penta,temp)
 
-    low_pitch  = config.pitch_char2num_dicts["B3"]
-    high_pitch = config.pitch_char2num_dicts["D5"]
+    low_pitch  = config.pitch_char2num_dicts["B+3"]
+    high_pitch = config.pitch_char2num_dicts["D+5"]
 
-    val = config.pitch_char2num_dicts[choice_key + "-2"] #C-2をとってくる -1,+1でもなんでもいい。
-    key_penta       = base_penta + val                   #key choice_keyでのペンタトニックスケール羅列
-    key_penta_range = key_penta[(key_penta >= low_pitch)&(key_penta<=high_pitch )] #きりたんの音域にあうピッチのみ
-    key_penta_range = [config.pitch_num2char_dicts[i] for i in key_penta_range] #ピッチ数を文字列に変換する
+    val = config.pitch_char2num_dicts[key + "-2"]                                   #C-2をとってくる -1,+1でもなんでもいい。
+    key_penta_num       = base_penta + val                                                 #key choice_keyでのペンタトニックスケール羅列
+    key_penta_num       = key_penta_num[ (key_penta_num >= 0) & (key_penta_num <= 128) ]   #
+    key_penta_recommended_range = (key_penta_num >= low_pitch)&(key_penta_num<=high_pitch )#きりたんの音域に合うレンジを取得しておく。
+    key_penta_char = np.array( [config.pitch_num2char_dicts[i] for i in key_penta_num] )              #ピッチ数を文字列に変換する
 
-    return key_penta_range
+    return [key_penta_num,key_penta_char],key_penta_recommended_range
 
 #モチーフパターンを羅列
 def make_motif_pattern_list(use_note_lists):
@@ -90,7 +91,7 @@ def cut_firstend_bar(wav_path,bpm):
     sf.write(wav_path,data_cut,samplerate)
 
 
-def repeat_loop(loop_path,out_path,repeat_num=1):
+def repeat_loop(loop_path,out_path,repeat_num=1): # 8/02m = 4
     data,samplerate = sf.read(loop_path,always_2d=True)
 
     data_cut = np.tile(data,[repeat_num,1])
