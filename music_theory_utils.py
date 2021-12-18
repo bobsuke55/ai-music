@@ -68,7 +68,7 @@ parts_phrase_patern_list = \
 }
 
 class ItsuUta:
-    def __init__(self,name,genra="random"):
+    def __init__(self,name,NEUTRINO_PATH,genra="random"):
 
         self.songname       = name
         self.parts      = {"Intro":{"vocal_flg":False},
@@ -79,8 +79,7 @@ class ItsuUta:
 
         self.BPM         = 0
         self.KEY         = "C"
-        #self.NEUTRINO    = "C:\\Users\\yusuke\\Desktop\\Music\\NEUTRINO-Windows_v0.500\\Run_arg.bat"
-        self.NEUTRINO    = "C:\\Users\\ryo\\Documents\\AI\\NEUTRINO-Windows_v0.500\\NEUTRINO\\Run_arg.bat"
+        self.NEUTRINO    = NEUTRINO_PATH
 
         self.savepath = os.path.join("save",self.songname)
         os.makedirs(self.savepath,exist_ok=True)
