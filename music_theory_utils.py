@@ -33,11 +33,39 @@ onoff_prob_list = [0.9,0.1]
 beat    = 4
 bar_num = 1
 
-#モチーフのリピートパターン A:そのままモチーフ、B:音程降り直し、C:モチーフつくりなおし
-phrase_choice_list       =  ["AAACAAAC","AABCAABC","ABACABAC","ABBCABBC"]
-phrase_choice_num        =  len(phrase_choice_list)
-phrase_choice_prob_list  =  [1/phrase_choice_num for i in range(phrase_choice_num)]
+#モチーフのリピートパターン 
+#O:オリジナルモチーフ、(O)
+#K:モチーフのリズムキープして、ピッチを降り直し(Keep)
+#R:モチーフ再生成 (Rebuild)
+#S{num}:Aモチーフのメロディラインをnum分上げる (Shift)
+#F:third, fifth,rootで最後の音が終わる。(Fin)
 
+all_motif_uniques        =  ["O","K","R","S","F"]
+parts_prob_temature      =  {"Intro":1,"Amelo":1,"Bmelo":1,"Sabi":3}
+parts_phrase_patern_list = \
+{   "Intro":[
+           ["O","O","O","R","O","O","O","R"],
+           ["O","O","K","R","O","O","K","R"],
+           ["O","K","O","R","O","K","O","R"],
+           ["O","K","K","R","O","K","K","R"]
+        ],
+    "Amelo":[
+           ["O","O","O","R","O","O","O","R"],
+           ["O","O","K","R","O","O","K","R"],
+           ["O","K","O","R","O","K","O","R"],
+           ["O","K","K","R","O","K","K","R"]
+        ],
+ "Bmelo":[ 
+            ["O","S+1","S+2","R","O","S+1","S+2","R"], 
+            ["O","S-1","S-2","R","O","S-1","S-2","R"],
+        ],
+ "Sabi":[
+           ["O","O","O","F","O","O","O","F"],
+           ["O","O","K","F","O","O","K","F"],
+           ["O","K","O","F","O","K","O","F"],
+           ["O","K","K","F","O","K","K","F"]
+        ]
+}
 
 class ItsuUta:
     def __init__(self,name,genra="random"):
@@ -61,13 +89,6 @@ class ItsuUta:
 
         self.select_loops(genra)
 
-        global melody_choice_list
-        global melody_choice_prob_list 
-
-        melody_choice_list       = utils.key_pentas_list(choice_key=self.KEY) 
-        melody_choice_num        = len(melody_choice_list)
-        melody_choice_prob_list  = [1/melody_choice_num for i in range(melody_choice_num)]
-
     def select_loops(self,genra=None):
         genras = os.listdir(f"loop8m\\")
         if genra is "random":
@@ -90,15 +111,15 @@ class ItsuUta:
                 loop  = random.choice(loops)
                 insts_dict[inst] = loop
             self.parts[part]["loops"] = insts_dict
-            print(part,insts_dict)
+            #print(part,insts_dict)
 
     ### 自動作曲 ###
     def gen_music(self):
-        for part in self.parts:
-            base_motif  = Motif(beat=4,bar_num=1,bpm=self.BPM)
-            motif_str   = np.random.choice(phrase_choice_list,p=phrase_choice_prob_list)
-            base_phrase = Phrase(base_motif=base_motif,part_name=part,motif_patern=motif_str)
-            self.parts[part]["phrase"]= base_phrase
+        for part_name,part_item in self.parts.items():
+
+            phrase_pattern_list   = random.choice(parts_phrase_patern_list[part_name])
+            base_phrase = Phrase(part_name=part_name,motif_patern=phrase_pattern_list,key=self.KEY,bpm=self.BPM)
+            part_item["phrase"]= base_phrase
         
     ### 歌詞をNoteにセットする。
     def set_lyric(self,set_lyric="あいうえお",setmode="repeat"):
@@ -236,7 +257,7 @@ class ItsuUta:
                 motif.print_motif()
 
     def save_instance(self):
-
+    
         instance_path = os.path.join(self.savepath,"itsuuta.pkl")
         with open(instance_path,"wb") as f:
             pkl.dump(self,f)
@@ -251,59 +272,157 @@ def default_method(item):
     else:
         raise TypeError
 
+
 class Phrase: 
-    def __init__(self,base_motif,part_name="Amelo",motif_patern="ABAC"):
-        
-        # 基本となるモチーフ
-        self.base_motif   = base_motif 
+    def __init__(self,part_name="Amelo",motif_patern=["A","B","A","C"],key="C",bpm=120):
+
         # Amelo,Bmelo,Sabi,etc..
-        self.part_name     = part_name   
-        self.motif_patern = motif_patern
-        #phraseに含まれる小節数
-        self.bar_num       = len(self.motif_patern) * self.base_motif.bar_num
+        self.part_name     = part_name
+        self.motif_patern  = motif_patern
+        self.motif_uniques = set(self.motif_patern) # motif_patternに含まれるmotifリスト
+
+        # メロディピッチの候補、キーにあったペンタトニックスケール。
+        # recommended_range : きりたんの推奨音域にあったpitchだけTrue
+        [self.choices_pitch_num,self.choices_pitch_char],self.key_penta_recommended_range = utils.key_pentas_list(key=key)
+
+        self.BPM = bpm
+        self.key = key
+
         ##motifインスタンスのリスト
-        self.motifs        = []
-        
-        self.motif_dict = self.make_motif_dict() 
-        
+        self.motifs      = []
+        self.motif_dict  = self.make_motif_dict()
+
         for patern in self.motif_patern:
             self.motifs.append( copy.deepcopy( self.motif_dict[patern] ) )
 
-    def __dict__(self): #json に保存するため
-        return self.part_name
+    #モチーフを作成する。
+    def create_motif(self,beat=4,bar_num=1):
+        motif  = Motif(beat=beat,bar_num=bar_num,bpm=self.BPM)
+        motif  = self.set_motif_pitch(motif=motif)
+        return motif
 
-    def make_motif_dict(self):
-        unique_paterns = set(self.motif_patern)
-        motif_dict    = {}
+    #motifのピッチをセットする。ピッチふりのメソッドはchoice_pitch_dis_prob(pre_pitchからの距離に応じたサンプル)
+    def set_motif_pitch(self,motif,pre_pitch_char="N"):
+        #pre_pitch_char = "N"ならモチーフの先頭ピッチがランダムに決まる。
+        print("PIT",self.choices_pitch_char[self.key_penta_recommended_range])
 
-        for patern in unique_paterns:
-            motif_cp = copy.deepcopy(self.base_motif)
-            
-            if patern  == "A": #そのままコピー
-                pass
-
-            elif patern == "B": #リズムをキープしてピッチをふりなおす
-                for note in motif_cp.notes:
-                    note.change_pitch( melody_choice_list = melody_choice_list,melody_choice_prob_list=melody_choice_prob_list)
-
-            elif patern == "C":  #完全新規
-                motif_cp = Motif(beat=motif_cp.beat,bar_num=motif_cp.bar_num,bpm=motif_cp.bpm)
+        for note in motif.notes:
+            if note.onoff_char == "off": #note offならskip
+                continue
+            if pre_pitch_char == "N": #先頭
+                pitch_char = self.choice_pitch_random_uniform()
                 
-            motif_dict[patern] = motif_cp
+            else: #pre_pitch_charに基づいて決定
+                pitch_char = self.choice_pitch_dis_prob(pre_pitch_char=pre_pitch_char,temp=parts_prob_temature[self.part_name])
+                
+            note.set_pitch(pitch_char=pitch_char)
+            pre_pitch_char = pitch_char
+
+        return motif
+
+    def make_motif_dict(self): 
+
+        motif_dict    = {} 
+
+        #Original motifの作成
+        motif_dict["O"] = self.create_motif(beat=4,bar_num=1)
+
+        for motif_id in self.motif_uniques:
+            if motif_id  == "O": #オリジナルは既にあるのでスキップ
+                continue
+
+            elif motif_id == "K": #K:モチーフのリズムキープして、ピッチを降り直し(Keep)
+                motif = copy.deepcopy(motif_dict["O"])
+                motif = self.set_motif_pitch(motif=motif,pre_pitch_char="N")
+
+            elif motif_id == "R": #モチーフ再生成 (Regen)  
+                motif = self.create_motif(beat=4,bar_num=1)
+        
+            elif "S" in motif_id: #S{num}:Originalモチーフのメロディラインをnum分shiftする (Shift)
+                motif = copy.deepcopy(motif_dict["O"])
+                pitch_shift = int(motif_id[1:])
+                for note in motif.notes:
+                    if note.onoff_char == "off":
+                        continue
+                    pitch_shift_ind  = np.where( self.choices_pitch_char == note.pitch_char )[0] + pitch_shift
+                    pitch_shift_char = self.choices_pitch_char[pitch_shift_ind][0]
+                    #print(pitch_shift_char)
+                    note.set_pitch(pitch_shift_char)
+
+            elif motif_id == "F": #モチーフ再生成かつthird, fifth,rootで最後の音が終わる。(Fin)
+                motif = self.create_motif(beat=4,bar_num=1)
+
+                third_char = config.pitch_num2char_dicts[config.pitch_char2num_dicts[f"{self.key}-2"] + 4][:-2]#third pitchを取得
+                fifth_char = config.pitch_num2char_dicts[config.pitch_char2num_dicts[f"{self.key}-2"] + 7][:-2]#fifth pitchを取得
+
+                root_ind   = np.array( [ i[:-2] == self.key for i in self.choices_pitch_char] )
+                third_ind  = np.array( [ i[:-2] == third_char for i in self.choices_pitch_char] ) #third pitch の indを取得
+                fifth_ind  = np.array( [ i[:-2] == fifth_char for i in self.choices_pitch_char] ) #fifth pitch の indを取得
+
+                fin_choice_ind = self.key_penta_recommended_range & ( root_ind | third_ind | fifth_ind)
+                
+                pitch_char = random.choice( self.choices_pitch_char[fin_choice_ind] ) #推奨音域 & (third | fifth) の
+                motif.last_on_note.set_pitch( pitch_char )
+            
+            else:
+                assert 0,f"{motif_id} is not include in all_motif_uniques"
+            
+            motif_dict[motif_id] = motif
 
         return motif_dict
     
+    def __dict__(self): #json に保存するため
+        return {"motif_patern":"_".join(self.motif_patern)}
+
+    def choice_pitch(self,pre_pitch="N"): ##いろいろな確率に基づいてnoteを決定する。
+        if pre_pitch == "N": #直前のnoteがNなら
+            pitch_char = self.choice_pitch_random_uniform()
+        else:
+            pitch_prob_std = self.pitch_dis_prob(pre_pitch,temp=1)
+
+        return pitch_char
+
+    def choice_pitch_dis_prob(self,pre_pitch_char,temp=1,power=1):
+        #pre_pitchからの音の距離に応じて確率を決定。 
+        #tempが大きいほど一様な確率になる。
+        pre_pitch_num = config.pitch_char2num_dicts[pre_pitch_char]
+
+        temp_choices_pitch_num  = self.choices_pitch_num[self.key_penta_recommended_range] 
+        temp_choices_pitch_char = self.choices_pitch_char[self.key_penta_recommended_range] 
+
+        pitch_abssub   = np.abs( temp_choices_pitch_num - pre_pitch_num )
+        pitch_prob     = np.max( pitch_abssub ) - pitch_abssub + temp
+        pitch_prob     = np.power(pitch_prob,power)
+        pitch_prob     = pitch_prob/pitch_prob.sum()  #確率の正規化
+
+        #確率に応じてサンプル
+        pitch_char     = np.random.choice(temp_choices_pitch_char,p=pitch_prob)
+        print(pitch_char,pitch_prob)
+
+        """
+        with open("test.txt","a") as f:
+            prob_text = [ "{.2f}".format(i) for i in pitch_prob ]
+            prob_text = pitch_char +":"+ "　".join(prob_text) + "\n"
+            f.writelines(prob_text)
+        """
+
+        return pitch_char
+
+    def choice_pitch_random_uniform(self): #一様確率でピッチを適当に選択
+        pitch_char = random.choice(self.choices_pitch_char[self.key_penta_recommended_range])
+        return pitch_char
+
     def print_phrase(self):
         for motief in self.motifs:
             print("---")
             motief.print_motif()
 
-    
 class Motif: 
     def __init__(self,beat,bpm,bar_num=bar_num):
         self.notes   = []
         self.beat     = beat
         self.bar_num  = bar_num #モチーフの小節数。
+        self.last_on_note = None #あると便利なので、最後のon noteへの参照をもっておく
         
         self.bar_reso    = int( config.bar_reso * (self.beat/4) )
         self.motif_reso  = self.bar_reso * self.bar_num
@@ -317,10 +436,13 @@ class Motif:
         np.random.shuffle( motif_combination )
         for note_char in motif_combination:
             onoff_char = np.random.choice(["on","off"], p=onoff_prob_list)
-            note = Note(note_char,onoff_char,"C-2",bpm=self.bpm)
-            note.change_pitch(melody_choice_list=melody_choice_list,melody_choice_prob_list=melody_choice_prob_list)
+            note = Note(note_char,onoff_char,"N",bpm=self.bpm) #音程はNをセット
+            #note.change_pitch(melody_choice_list=melody_choice_list,melody_choice_prob_list=melody_choice_prob_list)
             self.notes.append(note)
-            
+
+            if note.onoff_char == "on": #最後のon note への参照を持っておく。
+                self.last_on_note = note
+
         return self.notes
     
     def print_motif(self):
@@ -360,12 +482,10 @@ class Note:
         self.onoff_char    = "on" if (self.onoff_num == 1) else "off"
         self.pitch_char    = config.pitch_num2char_dicts[self.pitch_num]
     
-    def change_pitch(self,melody_choice_list,melody_choice_prob_list):
+    def set_pitch(self,pitch_char):
         if self.onoff_char == "on":
-            pitch_char = np.random.choice(melody_choice_list,p=melody_choice_prob_list,replace=True)
-            self.pitch_char = pitch_char
-        self.char2num()
-    
+            self.pitch_char = pitch_char    
+            self.char2num()
 
-
-
+        elif self.onoff_char == "off":
+            assert 0, "これは休符です。"
