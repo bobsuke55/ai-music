@@ -89,13 +89,8 @@ def cut_firstend_bar(wav_path,bpm):
     data_cut = data[bar_frames:-bar_frames]
     sf.write(wav_path,data_cut,samplerate)
 
-<<<<<<< HEAD
 # ループ素材の長さを，bpm毎に8小節に収める
 def fit_loop_8bar(bpm, loop_path, out_path):
-=======
-
-def repeat_loop(loop_path,out_path,repeat_num=1): # 8/02m = 4
->>>>>>> dev_yusuke
     data,samplerate = sf.read(loop_path,always_2d=True)
     bar8_sec    = 60 / bpm * 4 * 8
     bar8_sample = int(bar8_sec * samplerate)
