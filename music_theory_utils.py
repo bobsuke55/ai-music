@@ -33,15 +33,15 @@ onoff_prob_list = [0.9,0.1]
 beat    = 4
 bar_num = 1
 
+#数字が高い程、幅広いピッチレンジの曲が生成される確率が高くなる。
+parts_prob_temature      =  {"Intro":1,"Amelo":1,"Bmelo":1,"Sabi":3}
+
 #モチーフのリピートパターン 
 #O:オリジナルモチーフ、(O)
 #K:モチーフのリズムキープして、ピッチを降り直し(Keep)
 #R:モチーフ再生成 (Rebuild)
 #S{num}:Aモチーフのメロディラインをnum分上げる (Shift)
 #F:third, fifth,rootで最後の音が終わる。(Fin)
-
-#数字が高い程、幅広いピッチレンジの曲が生成される確率が高くなる。
-parts_prob_temature      =  {"Intro":1,"Amelo":1,"Bmelo":1,"Sabi":3}
 
 all_motif_uniques        =  ["O","K","R","S","F"]
 parts_phrase_patern_list = \
