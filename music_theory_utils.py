@@ -40,8 +40,10 @@ bar_num = 1
 #S{num}:Aモチーフのメロディラインをnum分上げる (Shift)
 #F:third, fifth,rootで最後の音が終わる。(Fin)
 
-all_motif_uniques        =  ["O","K","R","S","F"]
+#数字が高い程、幅広いピッチレンジの曲が生成される確率が高くなる。
 parts_prob_temature      =  {"Intro":1,"Amelo":1,"Bmelo":1,"Sabi":3}
+
+all_motif_uniques        =  ["O","K","R","S","F"]
 parts_phrase_patern_list = \
 {   "Intro":[
            ["O","O","O","R","O","O","O","R"],
@@ -49,7 +51,7 @@ parts_phrase_patern_list = \
            ["O","K","O","R","O","K","O","R"],
            ["O","K","K","R","O","K","K","R"]
         ],
-    "Amelo":[
+ "Amelo":[
            ["O","O","O","R","O","O","O","R"],
            ["O","O","K","R","O","O","K","R"],
            ["O","K","O","R","O","K","O","R"],
